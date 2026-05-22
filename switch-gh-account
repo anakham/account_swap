@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# switch-gh-account: Switch between GitHub accounts for gh and git
+# Usage: switch-gh-account {anakham|anakham-ai}
+
+set -e
+
+ACCOUNT="$1"
+
+case "$ACCOUNT" in
+    anakham|anakham-ai)
+        SSH_KEY="$HOME/.ssh/id_ed25519_$ACCOUNT"
+        ;;
+    "")
+        echo "Usage: switch-gh-account {anakham|anakham-ai}"
+        echo ""
+        echo "Available accounts:"
+        gh auth status --hostname github.com 2>/dev/null | grep -E "^\s+[a-zA-Z]" | head -5 || true
+        exit 1
+        ;;
+    *)
+        echo "Error: Unknown account '$ACCOUNT'"
+        echo "Available: anakham, anakham-ai"
+        exit 1
+        ;;
+esac
+
+echo "Switching to account: $ACCOUNT"
+
+gh auth switch --user "$ACCOUNT" --hostname github.com
+
+USER_ID=$(gh api user --jq '.id')
+USER_LOGIN=$(gh api user --jq '.login')
+EMAIL="${USER_ID}+${USER_LOGIN}@users.noreply.github.com"
+
+echo "No-reply email: $EMAIL"
+
+if [[ -f "$SSH_KEY" ]]; then
+    git config core.sshCommand "ssh -i '$SSH_KEY' -o IdentitiesOnly=yes"
+    echo "SSH key: $SSH_KEY (set for current repo)"
+else
+    echo "Warning: SSH key not found at $SSH_KEY"
+fi
+
+echo ""
+echo "Active gh account:"
+gh auth status --hostname github.com --active

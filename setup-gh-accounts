@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# setup-gh-accounts: Initial setup for multiple GitHub accounts
+# Run this once to configure both accounts
+
+set -e
+
+echo "=== GitHub Multi-Account Setup ==="
+echo ""
+
+echo "Step 1: Checking gh installation..."
+if ! command -v gh &> /dev/null; then
+    echo "Error: gh CLI not found. Install from: https://cli.github.com"
+    exit 1
+fi
+gh --version
+
+echo ""
+echo "Step 2: Authenticating 'anakham' account..."
+echo "Press Enter to continue, then login via browser..."
+read -r
+gh auth login --hostname github.com --git-protocol https
+
+echo ""
+echo "Step 3: Authenticating 'anakham-ai' account..."
+echo "Press Enter to continue, then login via browser as the second account..."
+read -r
+gh auth login --hostname github.com --git-protocol https
+
+echo ""
+echo "Step 4: Setting up gh as git credential helper..."
+gh auth setup-git
+
+echo ""
+echo "=== Setup Complete ==="
+echo ""
+echo "Current gh auth status:"
+gh auth status
+
+echo ""
+echo "To switch accounts, run:"
+echo "  ./switch-gh-account anakham"
+echo "  ./switch-gh-account anakham-ai"
