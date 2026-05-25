@@ -7,8 +7,7 @@ Scripts for switching between multiple GitHub accounts for both `gh` CLI and `gi
 ### 1. Setup each account (run once per account)
 
 ```bash
-./setup-gh-accounts anakham
-./setup-gh-accounts anakham-ai
+./setup-gh-accounts <login_name>
 ```
 
 The setup script will:
@@ -19,8 +18,7 @@ The setup script will:
 ### 2. Switch Accounts
 
 ```bash
-./switch-gh-account anakham
-./switch-gh-account anakham-ai
+./switch-gh-account <login_name>
 ```
 
 ## Files
@@ -35,8 +33,8 @@ The setup script will:
 SSH key paths are stored in `~/.gh-accounts`:
 
 ```
-anakham_ssh_key=/Users/user/.ssh/id_ed25519_anakham
-anakham-ai_ssh_key=/Users/user/.ssh/id_ed25519_anakham-ai
+login-1_ssh_key=/Users/user/.ssh/id_ed25519_login-1
+login-2_ssh_key=/Users/user/.ssh/id_ed25519_login-2
 ```
 
 ## How It Works
@@ -66,7 +64,7 @@ gh auth status
 git config user.name
 
 # Switch to account
-./switch-gh-account anakham
+./switch-gh-account <login_name>
 ```
 
 ## Troubleshooting
