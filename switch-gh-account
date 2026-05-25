@@ -1,28 +1,31 @@
 #!/usr/bin/env bash
 # switch-gh-account: Switch between GitHub accounts for gh and git
-# Usage: switch-gh-account {anakham|anakham-ai}
+# Usage: switch-gh-account <username>
 
 set -e
 
+CONFIG_FILE="$HOME/.gh-accounts"
+
 ACCOUNT="$1"
 
-case "$ACCOUNT" in
-    anakham|anakham-ai)
-        SSH_KEY="$HOME/.ssh/id_ed25519_$ACCOUNT"
-        ;;
-    "")
-        echo "Usage: switch-gh-account {anakham|anakham-ai}"
-        echo ""
-        echo "Available accounts:"
-        gh auth status --hostname github.com 2>/dev/null | grep -E "^\s+[a-zA-Z]" | head -5 || true
-        exit 1
-        ;;
-    *)
-        echo "Error: Unknown account '$ACCOUNT'"
-        echo "Available: anakham, anakham-ai"
-        exit 1
-        ;;
-esac
+if [[ -z "$ACCOUNT" ]]; then
+    echo "Usage: switch-gh-account <username>"
+    echo ""
+    echo "Available accounts:"
+    gh auth status --hostname github.com 2>/dev/null | grep -E "^\s+[a-zA-Z]" | head -5 || true
+    exit 1
+fi
+
+SSH_KEY=""
+if [[ -f "$CONFIG_FILE" ]]; then
+    SSH_KEY=$(grep "^${ACCOUNT}_ssh_key=" "$CONFIG_FILE" 2>/dev/null | cut -d= -f2-)
+fi
+
+if [[ -z "$SSH_KEY" ]]; then
+    HOSTNAME=$(hostname)
+    HOSTNAME="${HOSTNAME%.local}"
+    SSH_KEY="$HOME/.ssh/id_github_${HOSTNAME}_${ACCOUNT}"
+fi
 
 echo "Switching to account: $ACCOUNT"
 
@@ -34,11 +37,51 @@ EMAIL="${USER_ID}+${USER_LOGIN}@users.noreply.github.com"
 
 echo "No-reply email: $EMAIL"
 
-if [[ -f "$SSH_KEY" ]]; then
-    git config core.sshCommand "ssh -i '$SSH_KEY' -o IdentitiesOnly=yes"
-    echo "SSH key: $SSH_KEY (set for current repo)"
+if git rev-parse --git-dir > /dev/null 2>&1; then
+    git config user.name "$ACCOUNT"
+    git config user.email "$EMAIL"
+    echo "Git user.name and user.email set for this repository"
 else
-    echo "Warning: SSH key not found at $SSH_KEY"
+    echo "Not in a git repository - skipping user.name/user.email"
+fi
+
+GIT_PROTOCOL=$(gh config get git_protocol --hostname github.com 2>/dev/null || echo "https")
+echo "gh git_protocol: $GIT_PROTOCOL"
+
+if git rev-parse --git-dir > /dev/null 2>&1; then
+    REMOTE_URL=$(git remote get-url origin 2>/dev/null || git remote get-url $(git remote | head -1) 2>/dev/null || echo "")
+
+    if [[ -n "$REMOTE_URL" ]]; then
+        if [[ "$GIT_PROTOCOL" == "ssh" ]]; then
+            if [[ "$REMOTE_URL" =~ ^https://github\.com/([^/]+)/(.+)$ ]]; then
+                NEW_URL="git@github.com:${BASH_REMATCH[1]}/${BASH_REMATCH[2]}"
+                git remote set-url origin "$NEW_URL"
+                echo "Remote URL converted to SSH: $NEW_URL"
+            fi
+        else
+            if [[ "$REMOTE_URL" =~ ^git@github\.com:(.+)$ ]]; then
+                NEW_URL="https://github.com/${BASH_REMATCH[1]}"
+                git remote set-url origin "$NEW_URL"
+                echo "Remote URL converted to HTTPS: $NEW_URL"
+            fi
+        fi
+    fi
+
+    REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+
+    if [[ "$REMOTE_URL" =~ ^git@|^ssh:// ]]; then
+        if [[ -f "$SSH_KEY" ]]; then
+            git config core.sshCommand "ssh -i '$SSH_KEY' -o IdentitiesOnly=yes"
+            echo "SSH key: $SSH_KEY (set for current repo)"
+        else
+            echo "SSH key not found (tried: $SSH_KEY)"
+        fi
+    elif [[ "$REMOTE_URL" =~ ^https:// ]]; then
+        git config --unset core.sshCommand 2>/dev/null || true
+        echo "Remote: HTTPS (using gh credential helper)"
+    fi
+else
+    echo "Not in a git repository - skipping remote URL sync"
 fi
 
 echo ""
