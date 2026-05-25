@@ -45,7 +45,7 @@ else
     echo "Not in a git repository - skipping user.name/user.email"
 fi
 
-GIT_PROTOCOL=$(gh config get git_protocol --hostname github.com 2>/dev/null || echo "https")
+GIT_PROTOCOL=$(gh config get git_protocol --host github.com 2>/dev/null || echo "https")
 echo "gh git_protocol: $GIT_PROTOCOL"
 
 if git rev-parse --git-dir > /dev/null 2>&1; then
