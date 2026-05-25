@@ -1,29 +1,22 @@
 # GitHub Account Switcher
 
-Scripts for switching between multiple GitHub accounts (`anakham` and `anakham-ai`) for both `gh` CLI and `git`.
+Scripts for switching between multiple GitHub accounts for both `gh` CLI and `git`.
 
 ## Quick Start
 
-### 1. Initial Setup (run once)
+### 1. Setup each account (run once per account)
 
 ```bash
-# Authenticate both accounts with gh
-./setup-gh-accounts
-
-# OR manually:
-gh auth login  # Login as anakham
-gh auth login  # Login as anakham-ai
-gh auth setup-git
+./setup-gh-accounts anakham
+./setup-gh-accounts anakham-ai
 ```
 
-### 2. Configure Per-Directory Identity (optional, automatic switching)
+The setup script will:
+- Authenticate with gh via browser
+- Optionally configure SSH key (existing or generate new)
+- Store SSH key path in `~/.gh-accounts` config file
 
-```bash
-./setup-git-includes
-# Enter your project directories when prompted
-```
-
-### 3. Switch Accounts
+### 2. Switch Accounts
 
 ```bash
 ./switch-gh-account anakham
@@ -35,8 +28,16 @@ gh auth setup-git
 | File | Purpose |
 |------|---------|
 | `switch-gh-account` | Main script to switch between accounts |
-| `setup-gh-accounts` | Initial gh authentication setup |
-| `setup-git-includes` | Configure per-directory git identity |
+| `setup-gh-accounts` | Setup a new account with gh and optional SSH key |
+
+## Config File
+
+SSH key paths are stored in `~/.gh-accounts`:
+
+```
+anakham_ssh_key=/Users/user/.ssh/id_ed25519_anakham
+anakham-ai_ssh_key=/Users/user/.ssh/id_ed25519_anakham-ai
+```
 
 ## How It Works
 
@@ -50,23 +51,12 @@ gh auth setup-git
 - `gh auth switch` automatically updates git credentials
 
 ### git (SSH)
-- Script sets `core.sshCommand` to use different SSH keys per account
-- Requires SSH keys in `~/.ssh/id_ed25519_anakham` and `~/.ssh/id_ed25519_anakham-ai`
+- Script reads SSH key path from `~/.gh-accounts` config
+- Falls back to `~/.ssh/id_ed25519_<username>` if not in config
+- Sets `core.sshCommand` for current repository
 
 ### git user.name/email
-- Global config updated on switch
-- Optional: Per-directory config via `includeIf` in `~/.gitconfig`
-
-## SSH Key Setup (if using SSH remotes)
-
-```bash
-# Generate keys for each account
-ssh-keygen -t ed25519 -C "anakham@github.com" -f ~/.ssh/id_ed25519_anakham
-ssh-keygen -t ed25519 -C "anakham-ai@github.com" -f ~/.ssh/id_ed25519_anakham-ai
-
-# Add public keys to GitHub:
-# https://github.com/settings/keys
-```
+- Set manually per-repository as needed
 
 ## Usage
 
@@ -75,11 +65,8 @@ ssh-keygen -t ed25519 -C "anakham-ai@github.com" -f ~/.ssh/id_ed25519_anakham-ai
 gh auth status
 git config user.name
 
-# Switch to anakham
+# Switch to account
 ./switch-gh-account anakham
-
-# Switch to anakham-ai
-./switch-gh-account anakham-ai
 ```
 
 ## Troubleshooting
@@ -97,4 +84,7 @@ gh auth setup-git
 
 # For SSH issues, verify key is being used
 git config core.sshCommand
+
+# View stored SSH key config
+cat ~/.gh-accounts
 ```

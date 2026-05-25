@@ -1,10 +1,20 @@
 #!/usr/bin/env bash
-# setup-gh-accounts: Initial setup for multiple GitHub accounts
-# Run this once to configure both accounts
+# setup-gh-accounts: Setup a GitHub account with gh and optional SSH key
+# Usage: setup-gh-accounts <username>
 
 set -e
 
-echo "=== GitHub Multi-Account Setup ==="
+CONFIG_FILE="$HOME/.gh-accounts"
+
+ACCOUNT="$1"
+
+if [[ -z "$ACCOUNT" ]]; then
+    echo "Usage: setup-gh-accounts <username>"
+    echo "Example: setup-gh-accounts anakham"
+    exit 1
+fi
+
+echo "=== GitHub Account Setup: $ACCOUNT ==="
 echo ""
 
 echo "Step 1: Checking gh installation..."
@@ -15,20 +25,46 @@ fi
 gh --version
 
 echo ""
-echo "Step 2: Authenticating 'anakham' account..."
-echo "Press Enter to continue, then login via browser..."
-read -r
-gh auth login --hostname github.com --git-protocol https
+echo "Step 2: SSH Key Setup (generate BEFORE gh auth login)"
+echo "Do you want to generate an SSH key for this account? (y/n)"
+read -r SETUP_SSH
+
+SSH_KEY_PATH=""
+
+if [[ "$SETUP_SSH" =~ ^[Yy]$ ]]; then
+    HOSTNAME=$(hostname)
+    HOSTNAME="${HOSTNAME%.local}"
+    DEFAULT_KEY_NAME="id_github_${HOSTNAME}_${ACCOUNT}"
+    echo "Enter path for new key (default: ~/.ssh/$DEFAULT_KEY_NAME):"
+    read -r SSH_KEY_PATH
+    SSH_KEY_PATH="${SSH_KEY_PATH:-$HOME/.ssh/$DEFAULT_KEY_NAME}"
+    ssh-keygen -t ed25519 -C "$ACCOUNT@$HOSTNAME" -f "$SSH_KEY_PATH"
+fi
 
 echo ""
-echo "Step 3: Authenticating 'anakham-ai' account..."
-echo "Press Enter to continue, then login via browser as the second account..."
+echo "Step 3: Authenticating '$ACCOUNT' account..."
+echo "When asked about git protocol, choose 'SSH' so gh detects and uploads your SSH key."
+echo "Press Enter to continue, then login via browser..."
 read -r
-gh auth login --hostname github.com --git-protocol https
+gh auth login --hostname github.com
 
 echo ""
 echo "Step 4: Setting up gh as git credential helper..."
 gh auth setup-git
+
+if [[ -n "$SSH_KEY_PATH" && -f "$SSH_KEY_PATH" ]]; then
+    KEY_VAR="${ACCOUNT}_ssh_key"
+    if [[ -f "$CONFIG_FILE" ]]; then
+        if grep -q "^${KEY_VAR}=" "$CONFIG_FILE"; then
+            sed -i.bak "s|^${KEY_VAR}=.*|${KEY_VAR}=${SSH_KEY_PATH}|" "$CONFIG_FILE"
+        else
+            echo "${KEY_VAR}=${SSH_KEY_PATH}" >> "$CONFIG_FILE"
+        fi
+    else
+        echo "${KEY_VAR}=${SSH_KEY_PATH}" > "$CONFIG_FILE"
+    fi
+    echo "SSH key path saved to $CONFIG_FILE"
+fi
 
 echo ""
 echo "=== Setup Complete ==="
@@ -37,6 +73,5 @@ echo "Current gh auth status:"
 gh auth status
 
 echo ""
-echo "To switch accounts, run:"
-echo "  ./switch-gh-account anakham"
-echo "  ./switch-gh-account anakham-ai"
+echo "To switch to this account, run:"
+echo "  ./switch-gh-account $ACCOUNT"
